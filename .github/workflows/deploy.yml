@@ -1,0 +1,9 @@
+name: Deploy
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: configure AWS OIDC role, then run `cdk deploy --all`
