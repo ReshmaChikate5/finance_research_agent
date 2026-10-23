@@ -2,4 +2,8 @@
 name = "portfolio"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["mcp<2"]
+dependencies = [
+    "fastapi>=0.159.1",
+    "mcp",
+    "uvicorn>=0.54.0",
+]
