@@ -1,26 +1,72 @@
+x-app-healthcheck: &app-healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
 services:
-  agent_host:
-    build: ./agent_host
-    ports: ["8000:8000"]
-    env_file: .env
-    depends_on: [sec_edgar, market_data, portfolio, notify_slack]
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-portfolio}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  sec_edgar:
+  mcp-secedgar:
     build: ./mcp_servers/sec_edgar
+    env_file: .env
+    environment:
+      MCP_TRANSPORT: streamable-http
     ports: ["8001:8000"]
-    env_file: .env
+    healthcheck: *app-healthcheck
 
-  market_data:
+  mcp-marketdata:
     build: ./mcp_servers/market_data
+    env_file: .env
     ports: ["8002:8000"]
-    env_file: .env
+    healthcheck: *app-healthcheck
 
-  portfolio:
+  mcp-portfolio:
     build: ./mcp_servers/portfolio
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-finance}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-portfolio}
     ports: ["8003:8000"]
-    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck: *app-healthcheck
 
-  notify_slack:
+  mcp-notify:
     build: ./mcp_servers/notify_slack
-    ports: ["8004:8000"]
     env_file: .env
+    ports: ["8004:8000"]
+    healthcheck: *app-healthcheck
+
+  agent-host:
+    build: ./agent_host
+    env_file: .env
+    environment:
+      SEC_EDGAR_URL: http://mcp-secedgar:8000
+      MARKET_DATA_URL: http://mcp-marketdata:8000
+      PORTFOLIO_URL: http://mcp-portfolio:8000
+      NOTIFY_SLACK_URL: http://mcp-notify:8000
+    ports: ["8000:8000"]
+    depends_on:
+      mcp-secedgar: { condition: service_healthy }
+      mcp-marketdata: { condition: service_healthy }
+      mcp-portfolio: { condition: service_healthy }
+      mcp-notify: { condition: service_healthy }
+    healthcheck: *app-healthcheck
+
+volumes:
+  pgdata:
