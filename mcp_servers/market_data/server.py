@@ -22,16 +22,15 @@ import re
 import sys
 import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from cache import DailyBudget, TTLCache
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from cache import DailyBudget, TTLCache
 
 load_dotenv()  # local dev: finds .env in a parent folder. Docker injects env directly.
 
@@ -319,7 +318,7 @@ async def _quote_finnhub(ticker: str) -> dict[str, Any]:
         "high": _r(_num(data.get("h"))),
         "low": _r(_num(data.get("l"))),
         "previous_close": _r(_num(data.get("pc"))),
-        "as_of": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat() if ts else None,
+        "as_of": datetime.fromtimestamp(ts, tz=UTC).isoformat() if ts else None,
         "source": "finnhub",
     }
 

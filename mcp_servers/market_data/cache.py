@@ -11,7 +11,7 @@ restart. For multiple replicas on AWS, swap this for Redis/ElastiCache later.
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 _MISSING = object()
@@ -88,7 +88,7 @@ class DailyBudget:
         self._used = 0
 
     def _roll(self) -> None:
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         if today != self._day:
             self._day = today
             self._used = 0
