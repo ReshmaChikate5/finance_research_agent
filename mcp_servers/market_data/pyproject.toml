@@ -3,7 +3,9 @@ name = "market-data"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "asyncpg>=0.32.0",
     "fastapi>=0.159.1",
-    "mcp",
+    "mcp[cli]",
+    "python-dotenv>=1.2.4",
     "uvicorn>=0.54.0",
 ]

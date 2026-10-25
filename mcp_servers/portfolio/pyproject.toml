@@ -3,7 +3,7 @@ name = "portfolio"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.159.1",
-    "mcp",
-    "uvicorn>=0.54.0",
+    "httpx>=0.28.1",
+    "mcp[cli]",
+    "python-dotenv>=1.2.4",
 ]
