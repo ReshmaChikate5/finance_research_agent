@@ -45,7 +45,7 @@ class Settings(BaseSettings):
         return value if value.is_absolute() else (REPO_ROOT / value).resolve()
 
     @model_validator(mode="after")
-    def _check_backend(self) -> "Settings":
+    def _check_backend(self) -> Settings:
         if self.vector_store == "bedrock_kb" and not self.bedrock_kb_id:
             raise ValueError("BEDROCK_KB_ID must be set when VECTOR_STORE=bedrock_kb")
         return self

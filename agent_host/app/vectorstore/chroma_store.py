@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +103,7 @@ class ChromaVectorStore:
     def _upsert_sync(self, chunks: Sequence[Chunk]) -> int:
         unique = {c.id: c for c in chunks}  # duplicate ids in one call: last one wins
         items = list(unique.values())
-        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
         for start in range(0, len(items), BATCH_SIZE):
             batch = items[start : start + BATCH_SIZE]
             self._col.upsert(

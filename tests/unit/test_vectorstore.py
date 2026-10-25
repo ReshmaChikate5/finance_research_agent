@@ -12,7 +12,6 @@ import math
 import re
 
 import pytest
-
 from app.config import Settings
 from app.vectorstore import get_vector_store
 from app.vectorstore.base import Chunk, VectorStore, VectorStoreError

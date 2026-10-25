@@ -7,12 +7,12 @@ from app.vectorstore.base import Chunk, RetrievedChunk, VectorStore, VectorStore
 from app.vectorstore.chroma_store import ChromaVectorStore
 
 __all__ = [
+    "ChromaVectorStore",
     "Chunk",
     "RetrievedChunk",
     "Settings",
     "VectorStore",
     "VectorStoreError",
-    "ChromaVectorStore",
     "get_vector_store",
 ]
 
