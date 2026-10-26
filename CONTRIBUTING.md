@@ -2,7 +2,7 @@
 
 1. Create a branch: `git checkout -b feat/<name>`
 2. Install hooks: `uv run pre-commit install`
-3. Run tests: `uv run pytest`
+3. Run tests: `uv sync --project agent_host --extra local`, then `uv run --project agent_host --extra local pytest`
 4. Open a PR using the template.
 
 markdown
