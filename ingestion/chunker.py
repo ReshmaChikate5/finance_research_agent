@@ -22,9 +22,8 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 
-from bs4 import BeautifulSoup, NavigableString, Tag
-
 from app.vectorstore.base import Chunk, MetadataValue
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 DEFAULT_MAX_CHARS = 800  # ~200 tokens of prose; financial text tokenizes denser, see fit pass
 DEFAULT_OVERLAP = 120
@@ -39,9 +38,9 @@ _BLOCK_TAGS = {
     "html", "body", "div", "p", "li", "ul", "ol", "table", "thead", "tbody", "tfoot",
     "h1", "h2", "h3", "h4", "h5", "h6", "section", "article", "blockquote", "pre", "center",
 }
-_WS = re.compile(r"[\s ​]+")
-_HIDDEN = re.compile(r"display\s*:\s*none", re.I)
-_NOISE = re.compile(r"^(page\s*)?\d{1,3}$|^[A-Z]-\d{1,3}$|^[|\s]*$", re.I)
+_WS = re.compile(r"[\s \u200B]+")
+_HIDDEN = re.compile(r"display\s*:\s*none", re.IGNORECASE)
+_NOISE = re.compile(r"^(page\s*)?\d{1,3}$|^[A-Z]-\d{1,3}$|^[|\s]*$", re.IGNORECASE)
 _NOISE_PHRASES = {"table of contents", "index"}
 
 
@@ -147,8 +146,8 @@ TITLES_10Q = {
     "II-5": "Other Information", "II-6": "Exhibits",
 }
 
-_ITEM_RE = re.compile(r"^item\s*(\d{1,2}(?:\.\d{2})?[a-c]?)\b\s*(.*)$", re.I)
-_PART_RE = re.compile(r"^part\s+(iv|iii|ii|i)\b(.*)$", re.I)
+_ITEM_RE = re.compile(r"^item\s*(\d{1,2}(?:\.\d{2})?[a-c]?)\b\s*(.*)$", re.IGNORECASE)
+_PART_RE = re.compile(r"^part\s+(iv|iii|ii|i)\b(.*)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

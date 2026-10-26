@@ -31,7 +31,12 @@ from app.config import get_settings
 from app.vectorstore.base import Chunk
 
 from ingestion.chunker import (
-    DEFAULT_MAX_CHARS, DEFAULT_OVERLAP, ChunkStats, Section, chunk_sections, parse_sections,
+    DEFAULT_MAX_CHARS,
+    DEFAULT_OVERLAP,
+    ChunkStats,
+    Section,
+    chunk_sections,
+    parse_sections,
 )
 from ingestion.sources import EdgarClient, Filing, IngestSettings, NewsItem, SourceError, fetch_news
 
@@ -125,6 +130,7 @@ async def run(args: argparse.Namespace) -> int:
     store = embedder = counter = max_tokens = None
     if not args.dry_run:
         from app.vectorstore.chroma_store import ChromaVectorStore  # heavy imports only when needed
+
         from ingestion.embedder import get_embedder
 
         if settings.vector_store != "chroma":
@@ -227,10 +233,12 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(errors="replace")
-        except Exception:  # noqa: BLE001
-            pass
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(errors="replace")
+            except (OSError, ValueError):
+                logger.warning("Could not configure console encoding for %s", stream, exc_info=True)
     args = parse_args(argv)
     try:
         return asyncio.run(run(args))

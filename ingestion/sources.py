@@ -12,13 +12,12 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
 from app.config import REPO_ROOT
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("ingestion.sources")
 
@@ -198,7 +197,7 @@ def fetch_news(ticker: str, days: int, api_key: str, limit: int = 30) -> list[Ne
         summary = (row.get("summary") or "").strip()
         if not news_id or not (headline or summary) or news_id in items:
             continue
-        published = datetime.fromtimestamp(row.get("datetime", 0), tz=timezone.utc).date().isoformat()
+        published = datetime.fromtimestamp(row.get("datetime", 0), tz=UTC).date().isoformat()
         items[news_id] = NewsItem(
             news_id, ticker.upper(), headline, summary, row.get("url", ""),
             row.get("source", "") or "unknown", published,

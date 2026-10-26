@@ -10,26 +10,32 @@ page numbers, financial tables, cross-reference lines), and embeddings use a fak
 
 import asyncio
 import hashlib
+import itertools
 import math
 import re
 
 import pytest
-
 from app.vectorstore.chroma_store import ChromaVectorStore
+
 from ingestion.chunker import (
-    ChunkStats, chunk_filing, chunk_sections, html_to_blocks, parse_sections, split_text,
+    ChunkStats,
+    chunk_filing,
+    chunk_sections,
+    html_to_blocks,
+    parse_sections,
+    split_text,
 )
 from ingestion.load_chroma import Options, news_to_chunk, process_filing
 from ingestion.sources import Filing, NewsItem
 
 RISK_PARAS = [
-    "Our business depends on a limited number of suppliers. A shortage of components could delay "
+    ("Our business depends on a limited number of suppliers. A shortage of components could delay "
     "shipments and reduce revenue. We have experienced supply constraints in the past and may "
-    "again in the future, which could harm our results of operations and customer relationships.",
-    "We face intense competition. Competitors may introduce products with better performance or "
-    "lower prices. If we fail to keep pace with technology changes our market share could decline.",
-    "Changes in export regulations could restrict our ability to sell certain products in some "
-    "countries. See Item 7 for discussion of the effect on results. Compliance costs may increase.",
+    "again in the future, which could harm our results of operations and customer relationships."),
+    ("We face intense competition. Competitors may introduce products with better performance or "
+    "lower prices. If we fail to keep pace with technology changes our market share could decline."),
+    ("Changes in export regulations could restrict our ability to sell certain products in some "
+    "countries. See Item 7 for discussion of the effect on results. Compliance costs may increase."),
 ]
 
 
@@ -166,7 +172,7 @@ def test_overlap_repeats_trailing_paragraph_at_start_of_next_chunk():
     paras = [f"Distinct paragraph {i} " + "x" * 80 for i in range(8)]  # 101 chars each
     chunks = split_text(paras, max_chars=450, overlap=120)  # holds 4 paragraphs, carries 1
     assert len(chunks) > 1
-    for a, b in zip(chunks, chunks[1:]):
+    for a, b in itertools.pairwise(chunks):
         assert b.splitlines()[0] == a.splitlines()[-1]
 
 
@@ -191,9 +197,9 @@ def test_empty_input_gives_no_chunks():
 # ---------------------------------------------------------------------------
 # chunk_sections / chunk_filing
 # ---------------------------------------------------------------------------
-KW = dict(ticker="ACME", form_type="10-K", accession_number="0000000001-25-000001",
-          filing_date="2025-02-26", report_date="2025-01-26", company_name="ACME CORP",
-          source_url="https://example.invalid/acme.htm")
+KW = {"ticker": "ACME", "form_type": "10-K", "accession_number": "0000000001-25-000001",
+          "filing_date": "2025-02-26", "report_date": "2025-01-26", "company_name": "ACME CORP",
+          "source_url": "https://example.invalid/acme.htm"}
 
 
 def test_chunks_carry_citation_metadata_header_and_stable_ids():
@@ -259,7 +265,7 @@ FILING = Filing("ACME", "ACME CORP", 1, "10-K", "0000000001-25-000001", "2025-02
 
 
 def test_end_to_end_into_chroma_with_section_filter(tmp_path):
-    sections, chunks, stats = process_filing(FILING, make_10k(), Options(max_chars=300, overlap=50))
+    sections, chunks, _stats = process_filing(FILING, make_10k(), Options(max_chars=300, overlap=50))
     assert [s.key for s in sections][:2] == ["1", "1A"]
     store = ChromaVectorStore(tmp_path / "db", "test", embedder=FakeEmbedder())
     assert asyncio.run(store.upsert(chunks)) == len(chunks)
@@ -316,6 +322,7 @@ class FakeEdgar:
 @pytest.fixture
 def cli(monkeypatch, tmp_path):
     from app.config import Settings
+
     import ingestion.embedder as embedder_module
     import ingestion.load_chroma as lc
 

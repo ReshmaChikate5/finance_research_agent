@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 from app.vectorstore.embeddings import DEFAULT_MODEL, SentenceTransformerEmbedder
 
-__all__ = ["IngestionEmbedder", "get_embedder", "DEFAULT_MODEL"]
+__all__ = ["DEFAULT_MODEL", "IngestionEmbedder", "get_embedder"]
 
 
 class IngestionEmbedder(SentenceTransformerEmbedder):
@@ -26,10 +26,9 @@ class IngestionEmbedder(SentenceTransformerEmbedder):
     def count_tokens(self, texts: Sequence[str]) -> list[int]:
         """Tokens each text would use, including special tokens, without truncation."""
         tokenizer = self._load().tokenizer
-        try:  # silence the "longer than max length" warning: we WANT to measure that
-            tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
-        except Exception:  # noqa: BLE001 - cosmetic only
-            pass
+        deprecation_warnings = getattr(tokenizer, "deprecation_warnings", None)
+        if isinstance(deprecation_warnings, dict):
+            deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
         encoded = tokenizer(list(texts), add_special_tokens=True, truncation=False)
         return [len(ids) for ids in encoded["input_ids"]]
 
