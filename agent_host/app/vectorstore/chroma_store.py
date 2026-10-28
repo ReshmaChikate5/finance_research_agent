@@ -1,4 +1,11 @@
-"""Local ChromaVectorStore: file-backed, no server process."""
+"""Local ChromaVectorStore: file-backed, no server process.
+
+We compute embeddings ourselves (embeddings.py) and hand Chroma the vectors, instead of
+registering a Chroma embedding function. That keeps the code independent of Chroma's
+embedding-function API, and ingestion can reuse the same embedder.
+
+Chroma's client is synchronous, so every call runs in a worker thread.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +35,7 @@ MAX_K = 50
 
 
 def _clean_metadata(metadata: dict[str, Any]) -> dict[str, MetadataValue]:
+    """Chroma only accepts str/int/float/bool values: drop None, stringify anything else."""
     clean: dict[str, MetadataValue] = {}
     for key, value in metadata.items():
         if value is None:
@@ -63,7 +71,7 @@ class ChromaVectorStore:
         )
         self._col = client.get_or_create_collection(
             name=collection,
-            embedding_function=None,
+            embedding_function=None,  # we supply vectors ourselves
             metadata={"hnsw:space": "cosine", "embedding_model": self._embedder.name},
         )
         stored = (self._col.metadata or {}).get("embedding_model")
@@ -75,6 +83,7 @@ class ChromaVectorStore:
                 "folder and re-ingest."
             )
 
+    # ---- public async API -------------------------------------------------
     async def upsert(self, chunks: Sequence[Chunk]) -> int:
         return await asyncio.to_thread(self._upsert_sync, chunks)
 
@@ -87,21 +96,22 @@ class ChromaVectorStore:
         return await asyncio.to_thread(self._query_sync, text, k, filters)
 
     async def count(self) -> int:
+        """Number of stored chunks (Chroma-specific helper, not part of the interface)."""
         return await asyncio.to_thread(self._col.count)
 
+    # ---- sync internals ---------------------------------------------------
     def _upsert_sync(self, chunks: Sequence[Chunk]) -> int:
-        unique = {chunk.id: chunk for chunk in chunks}
+        unique = {c.id: c for c in chunks}  # duplicate ids in one call: last one wins
         items = list(unique.values())
         stamp = datetime.now(UTC).isoformat(timespec="seconds")
         for start in range(0, len(items), BATCH_SIZE):
             batch = items[start : start + BATCH_SIZE]
             self._col.upsert(
-                ids=[chunk.id for chunk in batch],
-                documents=[chunk.text for chunk in batch],
-                embeddings=self._embedder.embed([chunk.text for chunk in batch]),
-                metadatas=[
-                    {**_clean_metadata(chunk.metadata), "indexed_at": stamp} for chunk in batch
-                ],
+                ids=[c.id for c in batch],
+                documents=[c.text for c in batch],
+                embeddings=self._embedder.embed([c.text for c in batch]),
+                # indexed_at also guarantees metadata is never empty (Chroma rejects {})
+                metadatas=[{**_clean_metadata(c.metadata), "indexed_at": stamp} for c in batch],
             )
         logger.info("Upserted %d chunks", len(items))
         return len(items)
@@ -118,12 +128,12 @@ class ChromaVectorStore:
         )
         return [
             RetrievedChunk(
-                id=chunk_id,
-                text=document,
-                score=round(1.0 - float(distance), 4),
-                metadata=dict(metadata or {}),
+                id=cid,
+                text=doc,
+                score=round(1.0 - float(dist), 4),  # cosine distance -> similarity
+                metadata=dict(meta or {}),
             )
-            for chunk_id, document, metadata, distance in zip(
+            for cid, doc, meta, dist in zip(
                 result["ids"][0],
                 result["documents"][0],
                 result["metadatas"][0],

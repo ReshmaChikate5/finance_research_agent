@@ -1,4 +1,12 @@
-"""Shared vector-store types and protocol."""
+"""VectorStore interface: the ONLY thing the LangGraph rag_node should depend on.
+
+Any backend (local Chroma now, Bedrock Knowledge Bases on AWS later) implements these two
+async methods. The graph never imports a concrete store, so swapping is a config change.
+
+Conventional metadata keys (keep them consistent across ingestion and retrieval so the
+synthesizer can cite sources): ticker, form_type, accession_number, filing_date, section,
+source_url.
+"""
 
 from __future__ import annotations
 
@@ -11,12 +19,12 @@ Filters = dict[str, MetadataValue | list[MetadataValue]]
 
 
 class VectorStoreError(Exception):
-    """A vector-store problem whose message is safe to show."""
+    """A vector-store problem whose message is safe to show (setup, config, mismatch)."""
 
 
 @dataclass(frozen=True)
 class Chunk:
-    """One piece of text to index, identified by a stable id."""
+    """One piece of text to index. `id` must be stable so re-ingesting replaces, not duplicates."""
 
     id: str
     text: str
@@ -31,7 +39,7 @@ class Chunk:
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """A search hit, ordered by cosine similarity."""
+    """A search hit. `score` is cosine similarity (higher is more relevant, about 0 to 1)."""
 
     id: str
     text: str
@@ -42,11 +50,15 @@ class RetrievedChunk:
 @runtime_checkable
 class VectorStore(Protocol):
     async def upsert(self, chunks: Sequence[Chunk]) -> int:
-        """Insert or replace chunks by id and return the number written."""
+        """Insert or replace chunks by id. Returns how many distinct chunks were written."""
         ...
 
     async def query(
         self, text: str, k: int = 5, filters: Filters | None = None
     ) -> list[RetrievedChunk]:
-        """Return the most similar chunks, optionally filtered by metadata."""
+        """Return the k chunks most similar to `text`, best first.
+
+        `filters` narrows by metadata equality, e.g. {"ticker": "NVDA"}; a list value
+        means "any of", e.g. {"form_type": ["10-K", "10-Q"]}.
+        """
         ...

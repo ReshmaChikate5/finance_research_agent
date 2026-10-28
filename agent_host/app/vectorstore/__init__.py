@@ -18,6 +18,11 @@ __all__ = [
 
 
 def get_vector_store(settings: Settings | None = None) -> VectorStore:
+    """Build the configured vector-store implementation.
+
+    The agent graph only depends on the VectorStore protocol, so the concrete backend is
+    selected here from application settings instead of being imported elsewhere.
+    """
     resolved = settings or get_settings()
 
     if resolved.vector_store == "chroma":

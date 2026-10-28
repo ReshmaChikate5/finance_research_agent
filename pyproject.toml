@@ -3,6 +3,11 @@ name = "agentic-finance-agent"
 version = "0.1.0"
 description = "Agentic finance research assistant (LangGraph + MCP + AWS)"
 requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=2.3.0",
+    "python-dotenv>=1.2.4",
+]
 
 [project.optional-dependencies]
 local = [
