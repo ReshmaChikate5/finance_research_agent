@@ -19,7 +19,7 @@ from app.graph.prompts import PLANNER_SYSTEM, PLANNER_USER, SYNTH_SYSTEM, SYNTH_
 from app.graph.state import AgentState
 from app.llm import LLMError
 from app.mcp_clients import ALLOWED_TOOLS, ToolClientError
-from app.vectorstore.base import VectorStoreError
+
 
 logger = logging.getLogger("agent.graph")
 
@@ -278,7 +278,7 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         filters = {"ticker": p["ticker"]} if p.get("ticker") else None
         try:
             found = await deps.store.query(p["query"], k=5, filters=filters)
-        except VectorStoreError as exc:
+        except Exception as exc:
             return {"warnings": [f"Filing search failed ({type(exc).__name__}: {exc})."]}
         if not found:
             msg = f"Filing search for '{p['query']}' found nothing (is the index loaded? run ingestion)."

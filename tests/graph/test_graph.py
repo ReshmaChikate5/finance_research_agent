@@ -18,7 +18,7 @@ from app.graph.nodes import apply_citations, extract_json, validate_action
 from app.graph.router import after_approval, after_synthesis, tool_router
 from app.llm import LLMError
 from app.mcp_clients import ALLOWED_TOOLS, McpToolClient, ToolClientError
-from app.vectorstore.base import RetrievedChunk
+from app.vectorstore.base import RetrievedChunk, VectorStoreError
 from langgraph.graph import END
 
 
@@ -76,7 +76,7 @@ class FakeStore:
     async def query(self, text, k=5, filters=None):
         self.queries.append((text, filters))
         if self.boom:
-            raise RuntimeError("index missing")
+            raise VectorStoreError("index missing")
         return self.hits
 
 
@@ -467,7 +467,7 @@ def test_client_refuses_tools_outside_its_allowlist():
 
 def test_client_reports_unreachable_server_readably():
     client = McpToolClient("marketdata", "http://127.0.0.1:1", timeout=3)
-    with pytest.raises(ToolClientError, match="Could not reach|timed out"):
+    with pytest.raises(ToolClientError, match=r"Could not reach|timed out"):
         asyncio.run(client.call("get_quote", {"ticker": "A"}))
 
 
