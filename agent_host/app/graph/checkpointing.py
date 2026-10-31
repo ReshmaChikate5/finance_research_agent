@@ -16,8 +16,6 @@ from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 
-from psycopg import ProgrammingError
-
 from app.config import Settings
 
 
@@ -31,7 +29,7 @@ def describe_target(url: str) -> str:
 
     try:
         parts = conninfo_to_dict(url)
-    except ProgrammingError:
+    except Exception:  # noqa: BLE001 - a bad URL must never leak into an error message
         return "(unreadable CHECKPOINT_DATABASE_URL)"
     return f"{parts.get('host', 'localhost')}:{parts.get('port', 5432)}/{parts.get('dbname', '?')}"
 

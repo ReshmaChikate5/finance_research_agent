@@ -38,14 +38,26 @@ class FakeEmbedder:
 
 
 CHUNKS = [
-    Chunk("a1", "supply chain disruption could delay chip shipments",
-          {"ticker": "NVDA", "form_type": "10-K"}),
-    Chunk("a2", "revenue grew strongly driven by data center demand",
-          {"ticker": "NVDA", "form_type": "10-Q"}),
-    Chunk("b1", "supply chain constraints affected our manufacturing partners",
-          {"ticker": "AMD", "form_type": "10-K"}),
-    Chunk("b2", "we are party to legal proceedings and patent litigation",
-          {"ticker": "AMD", "form_type": "10-K"}),
+    Chunk(
+        "a1",
+        "supply chain disruption could delay chip shipments",
+        {"ticker": "NVDA", "form_type": "10-K"},
+    ),
+    Chunk(
+        "a2",
+        "revenue grew strongly driven by data center demand",
+        {"ticker": "NVDA", "form_type": "10-Q"},
+    ),
+    Chunk(
+        "b1",
+        "supply chain constraints affected our manufacturing partners",
+        {"ticker": "AMD", "form_type": "10-K"},
+    ),
+    Chunk(
+        "b2",
+        "we are party to legal proceedings and patent litigation",
+        {"ticker": "AMD", "form_type": "10-K"},
+    ),
 ]
 
 
@@ -73,7 +85,9 @@ def test_query_returns_most_relevant_first(store):
 
 def test_upsert_same_id_replaces_not_duplicates(store):
     run(store.upsert(CHUNKS))
-    run(store.upsert([Chunk("a1", "completely different text about dividends", {"ticker": "NVDA"})]))
+    run(
+        store.upsert([Chunk("a1", "completely different text about dividends", {"ticker": "NVDA"})])
+    )
     assert run(store.count()) == len(CHUNKS)
     hits = run(store.query("dividends", k=1))
     assert hits[0].id == "a1"

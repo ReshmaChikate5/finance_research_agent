@@ -20,7 +20,6 @@ from app.graph.state import AgentState
 from app.llm import LLMError
 from app.mcp_clients import ALLOWED_TOOLS, ToolClientError
 
-
 logger = logging.getLogger("agent.graph")
 
 DISCLAIMER = "_This report is for informational purposes only and is not financial advice._"
@@ -279,6 +278,9 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         try:
             found = await deps.store.query(p["query"], k=5, filters=filters)
         except Exception as exc:
+            # Any search failure must degrade to a warning, not crash the run; the traceback
+            # is logged so it is not hidden.
+            logger.warning("filing search failed", exc_info=True)
             return {"warnings": [f"Filing search failed ({type(exc).__name__}: {exc})."]}
         if not found:
             msg = f"Filing search for '{p['query']}' found nothing (is the index loaded? run ingestion)."
