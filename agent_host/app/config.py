@@ -31,11 +31,26 @@ class Settings(BaseSettings):
     # --- AWS ---
     aws_region: str = "ap-south-1"
 
-    # --- MCP servers (used from Step 14) ---
+    # --- MCP servers (base URLs; the client appends /mcp) ---
     sec_edgar_url: str = "http://localhost:8001"
     market_data_url: str = "http://localhost:8002"
     portfolio_url: str = "http://localhost:8003"
     notify_slack_url: str = "http://localhost:8004"
+
+    # --- LLM (Step 14) ---
+    # "anthropic" uses the Anthropic API (needs ANTHROPIC_API_KEY in the environment/.env).
+    # "bedrock" uses AWS Bedrock via your AWS profile (needs BEDROCK_MODEL_ID).
+    llm_provider: Literal["anthropic", "bedrock"] = "anthropic"
+    llm_model: str = "claude-sonnet-5-5"
+    bedrock_model_id: str = ""
+    anthropic_api_key: str = ""
+    llm_timeout_seconds: float = 90.0
+
+    # --- Agent behaviour ---
+    max_iterations: int = 8  # cap on planner->tool loops per request
+    demo_user_id: int = 1  # whose portfolio to read until real auth exists
+    slack_channel_name: str = "#finance-reports"
+    mcp_timeout_seconds: float = 60.0
 
     @field_validator("chroma_path")
     @classmethod
@@ -48,6 +63,10 @@ class Settings(BaseSettings):
     def _check_backend(self) -> Settings:
         if self.vector_store == "bedrock_kb" and not self.bedrock_kb_id:
             raise ValueError("BEDROCK_KB_ID must be set when VECTOR_STORE=bedrock_kb")
+        if self.llm_provider == "bedrock" and not self.bedrock_model_id:
+            raise ValueError("BEDROCK_MODEL_ID must be set when LLM_PROVIDER=bedrock")
+        if self.max_iterations < 1:
+            raise ValueError("MAX_ITERATIONS must be at least 1")
         return self
 
 

@@ -19,11 +19,14 @@ Known limits (by design, kept simple):
 from __future__ import annotations
 
 import re
+import warnings
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 
 from app.vectorstore.base import Chunk, MetadataValue
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag, XMLParsedAsHTMLWarning
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 DEFAULT_MAX_CHARS = 800  # ~200 tokens of prose; financial text tokenizes denser, see fit pass
 DEFAULT_OVERLAP = 120
