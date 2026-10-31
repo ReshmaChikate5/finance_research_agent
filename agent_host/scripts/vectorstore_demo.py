@@ -15,14 +15,28 @@ from app.vectorstore.base import Chunk
 from app.vectorstore.chroma_store import ChromaVectorStore
 
 SAMPLES = [
-    Chunk("acme-1", "ACME depends on a single supplier for key components, so a shortage "
-          "could delay production and hurt sales.", {"ticker": "ACME", "section": "Risk Factors"}),
-    Chunk("acme-2", "ACME quarterly revenue increased as customers bought more subscriptions.",
-          {"ticker": "ACME", "section": "MD&A"}),
-    Chunk("glbx-1", "Globex is involved in several lawsuits over patents that may require "
-          "large settlement payments.", {"ticker": "GLBX", "section": "Legal Proceedings"}),
-    Chunk("glbx-2", "Globex manufacturing partners reported shortages of raw materials.",
-          {"ticker": "GLBX", "section": "Risk Factors"}),
+    Chunk(
+        "acme-1",
+        "ACME depends on a single supplier for key components, so a shortage "
+        "could delay production and hurt sales.",
+        {"ticker": "ACME", "section": "Risk Factors"},
+    ),
+    Chunk(
+        "acme-2",
+        "ACME quarterly revenue increased as customers bought more subscriptions.",
+        {"ticker": "ACME", "section": "MD&A"},
+    ),
+    Chunk(
+        "glbx-1",
+        "Globex is involved in several lawsuits over patents that may require "
+        "large settlement payments.",
+        {"ticker": "GLBX", "section": "Legal Proceedings"},
+    ),
+    Chunk(
+        "glbx-2",
+        "Globex manufacturing partners reported shortages of raw materials.",
+        {"ticker": "GLBX", "section": "Risk Factors"},
+    ),
 ]
 
 
@@ -31,8 +45,10 @@ async def main() -> None:
         store = ChromaVectorStore(tmp, "demo")
         t0 = time.perf_counter()
         await store.upsert(SAMPLES)
-        print(f"Upserted {await store.count()} chunks in {time.perf_counter() - t0:.1f}s "
-              "(includes model load)\n")
+        print(
+            f"Upserted {await store.count()} chunks in {time.perf_counter() - t0:.1f}s "
+            "(includes model load)\n"
+        )
 
         for question, filters in [
             ("What supply chain risks does the company face?", None),
@@ -41,8 +57,10 @@ async def main() -> None:
         ]:
             print(f"Q: {question}   filters={filters}")
             for hit in await store.query(question, k=2, filters=filters):
-                print(f"   {hit.score:.3f}  [{hit.metadata['ticker']}/{hit.metadata['section']}] "
-                      f"{hit.text[:70]}...")
+                print(
+                    f"   {hit.score:.3f}  [{hit.metadata['ticker']}/{hit.metadata['section']}] "
+                    f"{hit.text[:70]}..."
+                )
             print()
 
 

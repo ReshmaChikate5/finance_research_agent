@@ -277,7 +277,10 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         filters = {"ticker": p["ticker"]} if p.get("ticker") else None
         try:
             found = await deps.store.query(p["query"], k=5, filters=filters)
-        except Exception as exc:  # noqa: BLE001 - store errors must not crash the run
+        except Exception as exc:
+            # Any search failure must degrade to a warning, not crash the run; the traceback
+            # is logged so it is not hidden.
+            logger.warning("filing search failed", exc_info=True)
             return {"warnings": [f"Filing search failed ({type(exc).__name__}: {exc})."]}
         if not found:
             msg = f"Filing search for '{p['query']}' found nothing (is the index loaded? run ingestion)."

@@ -52,6 +52,15 @@ class Settings(BaseSettings):
     slack_channel_name: str = "#finance-reports"
     mcp_timeout_seconds: float = 60.0
 
+    # --- Checkpointing (Step 15) ---
+    # "postgres" saves graph state after every node (survives a restart); "memory" keeps it
+    # in this process only; "none" turns checkpointing off.
+    checkpointer: Literal["postgres", "memory", "none"] = "postgres"
+    # A dedicated database and role, separate from the read-only portfolio role.
+    checkpoint_database_url: str = (
+        "postgresql://agent_state_rw:agent_state_local@localhost:5432/agent_state"
+    )
+
     @field_validator("chroma_path")
     @classmethod
     def _resolve_chroma_path(cls, value: Path) -> Path:

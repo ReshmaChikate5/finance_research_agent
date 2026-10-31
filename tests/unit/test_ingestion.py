@@ -29,13 +29,19 @@ from ingestion.load_chroma import Options, news_to_chunk, process_filing
 from ingestion.sources import Filing, NewsItem
 
 RISK_PARAS = [
-    ("Our business depends on a limited number of suppliers. A shortage of components could delay "
-    "shipments and reduce revenue. We have experienced supply constraints in the past and may "
-    "again in the future, which could harm our results of operations and customer relationships."),
-    ("We face intense competition. Competitors may introduce products with better performance or "
-    "lower prices. If we fail to keep pace with technology changes our market share could decline."),
-    ("Changes in export regulations could restrict our ability to sell certain products in some "
-    "countries. See Item 7 for discussion of the effect on results. Compliance costs may increase."),
+    (
+        "Our business depends on a limited number of suppliers. A shortage of components could delay "
+        "shipments and reduce revenue. We have experienced supply constraints in the past and may "
+        "again in the future, which could harm our results of operations and customer relationships."
+    ),
+    (
+        "We face intense competition. Competitors may introduce products with better performance or "
+        "lower prices. If we fail to keep pace with technology changes our market share could decline."
+    ),
+    (
+        "Changes in export regulations could restrict our ability to sell certain products in some "
+        "countries. See Item 7 for discussion of the effect on results. Compliance costs may increase."
+    ),
 ]
 
 
@@ -47,8 +53,11 @@ def make_10k() -> str:
     toc_rows = "".join(
         f"<tr><td>Item {i}.</td><td>{t}</td><td>{n}</td></tr>"
         for i, t, n in [
-            ("1", "Business", 4), ("1A", "Risk Factors", 12), ("1B", "Unresolved Staff Comments", 20),
-            ("2", "Properties", 21), ("7", "Management's Discussion and Analysis", 30),
+            ("1", "Business", 4),
+            ("1A", "Risk Factors", 12),
+            ("1B", "Unresolved Staff Comments", 20),
+            ("2", "Properties", 21),
+            ("7", "Management's Discussion and Analysis", 30),
             ("8", "Financial Statements and Supplementary Data", 45),
         ]
     )
@@ -60,8 +69,12 @@ def make_10k() -> str:
     <div>PART I</div>
     <div><span>Item 1.</span><span> Business</span></div>
     {_p("ACME designs and sells widgets to <b>enterprise</b> customers around the world.")}
-    {_p("We sell through <span>distributors</span> and directly. "
-        "Our <ix:nonnumeric>fiscal year</ix:nonnumeric> ends in January.")}
+    {
+        _p(
+            "We sell through <span>distributors</span> and directly. "
+            "Our <ix:nonnumeric>fiscal year</ix:nonnumeric> ends in January."
+        )
+    }
     <div>12</div>
     <div>Item 1A. Risk Factors</div>
     {"".join(_p(t) for t in RISK_PARAS)}
@@ -73,7 +86,11 @@ def make_10k() -> str:
     <div>Item 7. Management's Discussion and Analysis of Financial Condition</div>
     {_p("Revenue increased 12% compared with the prior year, driven by strong demand.")}
     <div>Item 1A. Risk Factors</div>
-    {_p("Item 1 of this report describes our business in detail and should be read with this section.")}
+    {
+        _p(
+            "Item 1 of this report describes our business in detail and should be read with this section."
+        )
+    }
     <table>
       <tr><td>Fiscal year</td><td>2025</td><td>2024</td></tr>
       <tr><td>Revenue</td><td>$</td><td>1,234</td><td>$</td><td>1,100</td></tr>
@@ -130,14 +147,26 @@ def test_real_section_beats_toc_entry_and_body_crossref_does_not_split_it():
 
 
 def test_item_cross_reference_sentences_are_not_headings():
-    blocks = ["Item 1 of this report describes our business.", "Item 1A. Risk Factors", "text " * 50,
-              "Item 2. Properties", "more " * 20]
-    keys = [s.key for s in __import__("ingestion.chunker", fromlist=["x"]).sections_from_blocks(blocks, "10-K")]
+    blocks = [
+        "Item 1 of this report describes our business.",
+        "Item 1A. Risk Factors",
+        "text " * 50,
+        "Item 2. Properties",
+        "more " * 20,
+    ]
+    keys = [
+        s.key
+        for s in __import__("ingestion.chunker", fromlist=["x"]).sections_from_blocks(
+            blocks, "10-K"
+        )
+    ]
     assert keys == ["1A", "2"]
 
 
 def test_no_items_falls_back_to_full_document():
-    sections = parse_sections("<html><body><p>Just some text here.</p><p>And more text.</p></body></html>", "10-K")
+    sections = parse_sections(
+        "<html><body><p>Just some text here.</p><p>And more text.</p></body></html>", "10-K"
+    )
     assert [s.key for s in sections] == ["FULL"]
     assert sections[0].label == "Full document"
 
@@ -197,9 +226,15 @@ def test_empty_input_gives_no_chunks():
 # ---------------------------------------------------------------------------
 # chunk_sections / chunk_filing
 # ---------------------------------------------------------------------------
-KW = {"ticker": "ACME", "form_type": "10-K", "accession_number": "0000000001-25-000001",
-          "filing_date": "2025-02-26", "report_date": "2025-01-26", "company_name": "ACME CORP",
-          "source_url": "https://example.invalid/acme.htm"}
+KW = {
+    "ticker": "ACME",
+    "form_type": "10-K",
+    "accession_number": "0000000001-25-000001",
+    "filing_date": "2025-02-26",
+    "report_date": "2025-01-26",
+    "company_name": "ACME CORP",
+    "source_url": "https://example.invalid/acme.htm",
+}
 
 
 def test_chunks_carry_citation_metadata_header_and_stable_ids():
@@ -212,7 +247,9 @@ def test_chunks_carry_citation_metadata_header_and_stable_ids():
     assert first.metadata["accession_number"] == "0000000001-25-000001"
     assert first.metadata["source_url"] == "https://example.invalid/acme.htm"
     assert len({c.id for c in chunks}) == len(chunks)
-    assert [c.id for c in chunks] == [c.id for c in chunk_filing(make_10k(), max_chars=300, overlap=50, **KW)]
+    assert [c.id for c in chunks] == [
+        c.id for c in chunk_filing(make_10k(), max_chars=300, overlap=50, **KW)
+    ]
 
 
 def test_chunks_never_cross_section_boundaries():
@@ -235,8 +272,15 @@ def test_token_fit_pass_resplits_chunks_that_exceed_the_model_window():
     def counter(texts):  # pretend 1 token per 2 characters (dense financial text)
         return [len(t) // 2 for t in texts]
 
-    chunks = chunk_sections(sections, max_chars=800, overlap=60, token_counter=counter,
-                            max_tokens=100, stats=stats, **{k: v for k, v in KW.items()})
+    chunks = chunk_sections(
+        sections,
+        max_chars=800,
+        overlap=60,
+        token_counter=counter,
+        max_tokens=100,
+        stats=stats,
+        **{k: v for k, v in KW.items()},
+    )
     assert stats.resplit > 0
     assert all(counter([c.text])[0] <= 100 for c in chunks)
     plain = chunk_sections(sections, max_chars=800, overlap=60, **KW)
@@ -260,12 +304,15 @@ class FakeEmbedder:
         return out
 
 
-FILING = Filing("ACME", "ACME CORP", 1, "10-K", "0000000001-25-000001", "2025-02-26",
-                "2025-01-26", "acme.htm")
+FILING = Filing(
+    "ACME", "ACME CORP", 1, "10-K", "0000000001-25-000001", "2025-02-26", "2025-01-26", "acme.htm"
+)
 
 
 def test_end_to_end_into_chroma_with_section_filter(tmp_path):
-    sections, chunks, _stats = process_filing(FILING, make_10k(), Options(max_chars=300, overlap=50))
+    sections, chunks, _stats = process_filing(
+        FILING, make_10k(), Options(max_chars=300, overlap=50)
+    )
     assert [s.key for s in sections][:2] == ["1", "1A"]
     store = ChromaVectorStore(tmp_path / "db", "test", embedder=FakeEmbedder())
     assert asyncio.run(store.upsert(chunks)) == len(chunks)
@@ -281,8 +328,15 @@ def test_end_to_end_into_chroma_with_section_filter(tmp_path):
 
 
 def test_news_chunk_shape():
-    item = NewsItem("123", "NVDA", "Chipmaker beats estimates", "Revenue rose sharply.",
-                    "https://example.invalid/n", "Reuters", "2026-10-20")
+    item = NewsItem(
+        "123",
+        "NVDA",
+        "Chipmaker beats estimates",
+        "Revenue rose sharply.",
+        "https://example.invalid/n",
+        "Reuters",
+        "2026-10-20",
+    )
     chunk = news_to_chunk(item)
     assert chunk.id == "news:NVDA:123"
     assert chunk.text.startswith("[NVDA news | 2026-10-20 | Reuters]\nChipmaker beats estimates")
@@ -291,7 +345,10 @@ def test_news_chunk_shape():
 
 def test_cli_dry_run_help_parses():
     from ingestion.load_chroma import parse_args
-    args = parse_args(["--tickers", "nvda", "amd", "--forms", "10-K", "--dry-run", "--skip-sections", "15", "16"])
+
+    args = parse_args(
+        ["--tickers", "nvda", "amd", "--forms", "10-K", "--dry-run", "--skip-sections", "15", "16"]
+    )
     assert args.tickers == ["nvda", "amd"] and args.dry_run and args.skip_sections == ["15", "16"]
 
 
@@ -349,7 +406,9 @@ def test_cli_full_run_loads_chroma_and_runs_smoke_query(cli, capsys):
     assert lc.main(["--tickers", "ACME", "--max-chars", "300", "--overlap", "50"]) == 0
     out = capsys.readouterr().out
     assert "upserted" in out and "Smoke test" in out
-    store = ChromaVectorStore(settings.chroma_path, settings.chroma_collection, embedder=FakeEmbedder())
+    store = ChromaVectorStore(
+        settings.chroma_path, settings.chroma_collection, embedder=FakeEmbedder()
+    )
     assert asyncio.run(store.count()) > 5
 
 
@@ -360,7 +419,9 @@ def test_cli_reset_deletes_the_old_database_first(cli, capsys):
     assert lc.main(["--tickers", "ACME", "--reset"]) == 0
     assert "Resetting" in capsys.readouterr().out
     assert not (settings.chroma_path / "old_index.marker").exists()
-    store = ChromaVectorStore(settings.chroma_path, settings.chroma_collection, embedder=FakeEmbedder())
+    store = ChromaVectorStore(
+        settings.chroma_path, settings.chroma_collection, embedder=FakeEmbedder()
+    )
     assert asyncio.run(store.count()) > 0
 
 
