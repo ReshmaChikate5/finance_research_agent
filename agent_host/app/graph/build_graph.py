@@ -10,11 +10,12 @@ The loop is bounded by deps.max_iterations (the planner forces synthesis at the 
 
 from __future__ import annotations
 
+from langgraph.graph import END, START, StateGraph
+
 from app.graph.deps import Deps
 from app.graph.nodes import make_nodes
 from app.graph.router import after_approval, after_review, after_synthesis, tool_router
 from app.graph.state import AgentState
-from langgraph.graph import END, START, StateGraph
 
 LOOP_NODES = ("mcp_secedgar_node", "mcp_marketdata_node", "mcp_portfolio_node", "rag_node")
 

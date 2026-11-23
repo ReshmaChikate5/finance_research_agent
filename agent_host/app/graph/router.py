@@ -5,8 +5,9 @@ They contain no I/O, so routing can be tested by feeding in a state dict.
 
 from __future__ import annotations
 
-from app.graph.state import AgentState
 from langgraph.graph import END
+
+from app.graph.state import AgentState
 
 # planner "route" value -> node name
 _TOOL_ROUTES = {

@@ -14,12 +14,13 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langgraph.types import interrupt
+
 from app.graph.deps import Deps
 from app.graph.prompts import PLANNER_SYSTEM, PLANNER_USER, SYNTH_SYSTEM, SYNTH_USER
 from app.graph.state import AgentState
 from app.llm import LLMError
 from app.mcp_clients import ALLOWED_TOOLS, WRITE_TOOLS, ToolClientError
-from langgraph.types import interrupt
 
 logger = logging.getLogger("agent.graph")
 
