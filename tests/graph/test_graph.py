@@ -575,3 +575,10 @@ def test_initial_warnings_reach_the_report():
     deps = make_deps(llm)
     final = run(deps, question="q", warnings=["The marketdata server was unreachable at start."])
     assert "marketdata server was unreachable" in final["report"]
+
+def test_off_topic_question_gets_a_scope_message_not_a_data_error():
+    deps = make_deps(FakeLLM(['{"action": "synthesize"}']), store=FakeStore([]))
+    final = run(deps, question="What is the weather in Mumbai today?")
+    assert "outside what I can help with" in final["final_report"]
+    assert "could not gather" not in final["final_report"]
+    assert deps.clients["notify"].calls == []
