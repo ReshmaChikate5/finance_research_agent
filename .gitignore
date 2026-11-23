@@ -5,3 +5,4 @@ __pycache__/
 .aws/
 .env
 .cache/
+evals/results/
