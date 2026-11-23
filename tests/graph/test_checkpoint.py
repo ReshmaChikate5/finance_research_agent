@@ -19,7 +19,9 @@ import pytest
 from app.config import Settings
 from app.graph.build_graph import build_graph, initial_state
 from app.graph.checkpointing import CheckpointError, describe_target, open_checkpointer
+from app.graph.hitl import drive
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 from tests.graph.test_graph import FakeClient, FakeLLM, j, make_deps
 
@@ -106,8 +108,11 @@ def test_resume_continues_without_repeating_finished_work(kind):
             g2 = build_graph(deps2, checkpointer=saver2)
             snap = await g2.aget_state(config)
             assert snap.next == ("planner_node",)
-            final = await g2.ainvoke(None, config, durability="sync")
-            return final, deps2
+
+            async def no_post(payload):
+                return False  # the human declines to post; we only test the resumed work
+
+            return await drive(g2, None, config, no_post), deps2
 
     final, deps2 = arun(scenario())
     assert len(market.calls) == 1  # the price was fetched once, before the crash
@@ -141,23 +146,54 @@ def test_finished_run_has_nothing_left_to_resume():
         saver = InMemorySaver()
         deps, _ = new_run(FakeClient({"get_quote": {"price": 1}}))
         g = build_graph(deps, checkpointer=saver)
-        await g.ainvoke(initial_state("Brief on NVDA", 1), config)
+
+        async def no_post(payload):
+            return False
+
+        await drive(g, initial_state("Brief on NVDA", 1), config, no_post)
         return await g.aget_state(config)
 
     snap = arun(scenario())
     assert snap.next == () and snap.values["final_report"]
 
 
-def test_checkpointer_none_and_memory_modes():
+def test_memory_mode_gives_an_in_memory_saver():
     async def scenario():
-        async with (
-            open_checkpointer(Settings(checkpointer="none")) as s0,
-            open_checkpointer(Settings(checkpointer="memory")) as s1,
-        ):
-            return s0, s1
+        async with open_checkpointer(Settings(checkpointer="memory")) as saver:
+            return saver
 
-    s0, s1 = arun(scenario())
-    assert s0 is None and isinstance(s1, InMemorySaver)
+    assert isinstance(arun(scenario()), InMemorySaver)
+
+
+@pytest.mark.parametrize("kind", savers())
+def test_a_run_paused_for_approval_survives_a_restart(kind):
+    """The point of Step 16 on top of Step 15: a question waiting for a human is not lost
+    when the process ends. A new connection and new graph can answer it."""
+    name, opener = kind
+    config = cfg()
+    notify = FakeClient({"post_report": {"status": "posted"}})
+    market = FakeClient({"get_quote": {"price": 1}})
+
+    async def scenario():
+        async with opener() as saver:
+            shared = saver
+            deps1, _ = new_run(market)
+            deps1.clients["notify"] = notify
+            g1 = build_graph(deps1, checkpointer=saver)
+            first = await g1.ainvoke(initial_state("Brief on NVDA", 1), config, durability="sync")
+            assert first["__interrupt__"][0].value["kind"] == "approve_post"
+        assert notify.calls == []  # paused: nothing posted yet
+        async with opener() as saver2:
+            deps2, _ = new_run(market)
+            deps2.clients["notify"] = notify
+            g2 = build_graph(deps2, checkpointer=shared if name == "memory" else saver2)
+            snap = await g2.aget_state(config)
+            assert snap.next == ("human_approval_node",)
+            return await g2.ainvoke(Command(resume=True), config, durability="sync")
+
+    final = arun(scenario())
+    assert final["notify_result"] == {"status": "posted"}
+    assert len(notify.calls) == 1  # approved once, posted once
 
 
 def test_unreachable_database_gives_a_readable_error_without_the_password():

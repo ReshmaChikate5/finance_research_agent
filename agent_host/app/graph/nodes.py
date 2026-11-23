@@ -14,11 +14,13 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langgraph.types import interrupt
+
 from app.graph.deps import Deps
 from app.graph.prompts import PLANNER_SYSTEM, PLANNER_USER, SYNTH_SYSTEM, SYNTH_USER
 from app.graph.state import AgentState
 from app.llm import LLMError
-from app.mcp_clients import ALLOWED_TOOLS, ToolClientError
+from app.mcp_clients import ALLOWED_TOOLS, WRITE_TOOLS, ToolClientError
 
 logger = logging.getLogger("agent.graph")
 
@@ -181,6 +183,21 @@ def sources_block(passages: list[dict[str, Any]], used: list[int]) -> str:
     return "\n".join(lines)
 
 
+_CONFLICT_RE = re.compile(r"^\s*[`*_]*CONFLICTS:\s*(.*?)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def split_conflict_line(draft: str) -> tuple[str, str]:
+    """Remove the model's final `CONFLICTS: ...` line. Returns (text, reason or "")."""
+    matches = list(_CONFLICT_RE.finditer(draft))
+    if not matches:
+        return draft, ""
+    last = matches[-1]
+    reason = last.group(1).strip().strip("`*_ ")
+    text = (draft[: last.start()] + draft[last.end() :]).strip()
+    none_like = {"", "none", "none.", "n/a", "no", "no conflicts"}
+    return text, "" if reason.lower() in none_like else reason
+
+
 # ---------------------------------------------------------------------------
 # Node factory
 # ---------------------------------------------------------------------------
@@ -260,6 +277,19 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
             args = dict(p.get("args", {}))
             if server == "portfolio":
                 args["user_id"] = state["user_id"]  # never trust the model for identity
+            if p["tool"] in WRITE_TOOLS.get(server, frozenset()):
+                # Pause BEFORE the call and wait for a human. Nothing above has side effects,
+                # which matters: on resume LangGraph runs this node again from the top.
+                allowed = interrupt(
+                    {"kind": "confirm_write", "server": server, "tool": p["tool"], "args": args}
+                )
+                if allowed is not True:
+                    declined = {"error": "The user declined this action; nothing was changed."}
+                    return {
+                        "observations": [
+                            {"server": server, "tool": p["tool"], "args": args, "result": declined}
+                        ]
+                    }
             try:
                 result = await deps.clients[server].call(p["tool"], args)
             except ToolClientError as exc:
@@ -279,7 +309,7 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
             found = await deps.store.query(p["query"], k=5, filters=filters)
         except Exception as exc:
             # Any search failure must degrade to a warning, not crash the run; the traceback
-            # is logged so it is not hidden.
+            # is logged so it is not hidden (this is also what satisfies ruff BLE001).
             logger.warning("filing search failed", exc_info=True)
             return {"warnings": [f"Filing search failed ({type(exc).__name__}: {exc})."]}
         if not found:
@@ -333,7 +363,16 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         stop = getattr(deps.llm, "last_stop_reason", "end_turn")
         if stop not in ("end_turn", "stop_sequence"):
             warnings.append(f"The model's answer may be incomplete (stop reason: {stop}).")
-        body, used, removed = apply_citations(draft.strip(), passages)
+        draft, model_conflict = split_conflict_line(draft.strip())
+        reasons = []
+        if model_conflict:
+            reasons.append(model_conflict)
+        if stop not in ("end_turn", "stop_sequence"):
+            reasons.append(f"the answer may be cut off (stop reason: {stop})")
+        conflict = "; ".join(reasons)
+        if model_conflict:
+            warnings.append(f"Possible conflict or thin evidence: {model_conflict}")
+        body, used, removed = apply_citations(draft, passages)
         if removed:
             warnings.append(
                 f"Removed {len(removed)} citation(s) that did not match any retrieved passage."
@@ -344,10 +383,42 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         shown = [w for w in warnings if w]
         if shown:
             report += "\n\n*Data caveats*\n" + "\n".join(f"- {w}" for w in shown)
-        return {"report": report, "final_report": f"{report}\n\n{DISCLAIMER}"}
+        return {
+            "report": report,
+            "final_report": f"{report}\n\n{DISCLAIMER}",
+            "conflict": conflict,
+        }
+
+    async def conflict_review_node(state: AgentState) -> dict[str, Any]:
+        """Pause and show a human why this draft looks unreliable. Not the synthesizer itself:
+        a resumed node re-runs from the top, which would call the model a second time."""
+        go_on = interrupt(
+            {
+                "kind": "review_conflict",
+                "conflict": state["conflict"],
+                "report": state["final_report"],
+            }
+        )
+        if go_on is True:
+            return {"review": True}
+        note = f"Stopped at your request. Reason flagged: {state['conflict']}"
+        return {
+            "review": False,
+            "report": "",
+            "approved": False,
+            "final_report": f"{state['final_report']}\n\n{note}",
+        }
 
     async def human_approval_node(state: AgentState) -> dict[str, Any]:
-        return {"approved": bool(await deps.approver(state["final_report"]))}
+        """Pause until a human says yes or no to posting. Nothing before interrupt() may act."""
+        answer = interrupt(
+            {
+                "kind": "approve_post",
+                "channel": deps.slack_channel,
+                "report": state["final_report"],
+            }
+        )
+        return {"approved": answer is True}
 
     async def mcp_notify_node(state: AgentState) -> dict[str, Any]:
         key = f"brief-{deps.today()}-{hashlib.sha256(state['report'].encode()).hexdigest()[:12]}"
@@ -367,6 +438,7 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         "mcp_portfolio_node": tool_node("portfolio"),
         "rag_node": rag_node,
         "synthesizer_node": synthesizer_node,
+        "conflict_review_node": conflict_review_node,
         "human_approval_node": human_approval_node,
         "mcp_notify_node": mcp_notify_node,
     }

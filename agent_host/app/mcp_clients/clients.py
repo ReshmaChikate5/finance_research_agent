@@ -23,6 +23,14 @@ ALLOWED_TOOLS: dict[str, frozenset[str]] = {
     "notify": frozenset({"post_report"}),
 }
 
+# Tools that CHANGE something. The graph asks a human before calling any of these (Step 16).
+# Empty today: every portfolio tool is read-only.
+WRITE_TOOLS: dict[str, frozenset[str]] = {
+    "secedgar": frozenset(),
+    "marketdata": frozenset(),
+    "portfolio": frozenset(),
+}
+
 
 def _root_cause(exc: BaseException) -> BaseException:
     """anyio wraps connection errors in an ExceptionGroup; show the real one."""

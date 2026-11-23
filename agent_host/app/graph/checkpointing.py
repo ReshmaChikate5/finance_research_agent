@@ -36,10 +36,7 @@ def describe_target(url: str) -> str:
 
 @asynccontextmanager
 async def open_checkpointer(settings: Settings) -> AsyncIterator[Any]:
-    """Yield a checkpointer (or None) and close its connection afterwards."""
-    if settings.checkpointer == "none":
-        yield None
-        return
+    """Yield a checkpointer and close its connection afterwards."""
     if settings.checkpointer == "memory":
         from langgraph.checkpoint.memory import InMemorySaver
 

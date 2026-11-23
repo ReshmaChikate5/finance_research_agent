@@ -14,11 +14,13 @@ import json
 import pytest
 from app.graph.build_graph import build_graph, initial_state
 from app.graph.deps import Deps
+from app.graph.hitl import drive
 from app.graph.nodes import apply_citations, extract_json, validate_action
-from app.graph.router import after_approval, after_synthesis, tool_router
+from app.graph.router import after_approval, after_review, after_synthesis, tool_router
 from app.llm import LLMError
 from app.mcp_clients import ALLOWED_TOOLS, McpToolClient, ToolClientError
 from app.vectorstore.base import RetrievedChunk
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END
 
 
@@ -121,11 +123,20 @@ def make_deps(llm, *, clients=None, store=None, approve=True, max_iterations=8):
     return deps
 
 
-def run(deps, question="Brief on NVDA", user_id=1):
-    graph = build_graph(deps)
-    return asyncio.run(
-        graph.ainvoke(initial_state(question, user_id), config={"recursion_limit": 60})
-    )
+def run(deps, question="Brief on NVDA", user_id=1, warnings=None, confirm_conflicts=True):
+    """Run to the end like a person would: the graph pauses at each human checkpoint and the
+    fake human (deps.approver for the Slack question, `confirm_conflicts` otherwise) answers."""
+    graph = build_graph(deps, checkpointer=InMemorySaver())
+    config = {"configurable": {"thread_id": "t"}, "recursion_limit": 60}
+    deps.checkpoints = []  # type: ignore[attr-defined]
+
+    async def decide(payload):
+        deps.checkpoints.append(payload)  # type: ignore[attr-defined]
+        if payload["kind"] == "approve_post":
+            return await deps.approver(payload["report"])
+        return confirm_conflicts
+
+    return asyncio.run(drive(graph, initial_state(question, user_id, warnings), config, decide))
 
 
 def j(**kw) -> str:
@@ -221,6 +232,10 @@ def test_routers():
     assert tool_router({}) == "synthesizer_node"
     assert after_synthesis({"report": "x"}) == "human_approval_node"
     assert after_synthesis({"report": ""}) == END
+    assert after_synthesis({"report": "x", "conflict": "prices differ"}) == "conflict_review_node"
+    assert after_review({"review": True}) == "human_approval_node"
+    assert after_review({"review": False}) == END
+    assert after_review({}) == END
     assert after_approval({"approved": True}) == "mcp_notify_node"
     assert after_approval({"approved": False}) == END
     assert after_approval({"approved": None}) == END
@@ -467,7 +482,7 @@ def test_client_refuses_tools_outside_its_allowlist():
 
 def test_client_reports_unreachable_server_readably():
     client = McpToolClient("marketdata", "http://127.0.0.1:1", timeout=3)
-    with pytest.raises(ToolClientError, match="Could not reach|timed out"):
+    with pytest.raises(ToolClientError, match=r"Could not reach|timed out"):
         asyncio.run(client.call("get_quote", {"ticker": "A"}))
 
 
@@ -558,11 +573,5 @@ def test_initial_warnings_reach_the_report():
         [j(action="search_filings", query="risks", ticker="NVDA"), j(action="synthesize")]
     )
     deps = make_deps(llm)
-    graph = build_graph(deps)
-    final = asyncio.run(
-        graph.ainvoke(
-            initial_state("q", 1, ["The marketdata server was unreachable at start."]),
-            config={"recursion_limit": 60},
-        )
-    )
+    final = run(deps, question="q", warnings=["The marketdata server was unreachable at start."])
     assert "marketdata server was unreachable" in final["report"]

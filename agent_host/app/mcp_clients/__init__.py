@@ -2,6 +2,7 @@
 
 from app.mcp_clients.clients import (
     ALLOWED_TOOLS,
+    WRITE_TOOLS,
     McpToolClient,
     ToolClient,
     ToolClientError,
@@ -11,6 +12,7 @@ from app.mcp_clients.clients import (
 
 __all__ = [
     "ALLOWED_TOOLS",
+    "WRITE_TOOLS",
     "McpToolClient",
     "ToolClient",
     "ToolClientError",
