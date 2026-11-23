@@ -54,8 +54,8 @@ class Settings(BaseSettings):
 
     # --- Checkpointing (Step 15) ---
     # "postgres" saves graph state after every node (survives a restart); "memory" keeps it
-    # in this process only; "none" turns checkpointing off.
-    checkpointer: Literal["postgres", "memory", "none"] = "postgres"
+    # in this process only. There is no "off": human approval (Step 16) needs saved state.
+    checkpointer: Literal["postgres", "memory"] = "postgres"
     # A dedicated database and role, separate from the read-only portfolio role.
     checkpoint_database_url: str = (
         "postgresql://agent_state_rw:agent_state_local@localhost:5432/agent_state"

@@ -29,5 +29,7 @@ class AgentState(TypedDict, total=False):
     # --- output ---
     report: str  # body text, with citations (no disclaimer; Slack server adds its own)
     final_report: str  # what the user sees: report + sources + disclaimer
+    conflict: str  # why a human should look at the draft first (empty = nothing to flag)
+    review: bool | None  # the human's answer to the conflict review (True = go on)
     approved: bool | None
     notify_result: dict[str, Any] | None

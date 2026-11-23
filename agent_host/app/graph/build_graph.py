@@ -2,19 +2,19 @@
 
 START -> planner -> (tool_router) -> one of: secedgar / marketdata / portfolio / rag
                                        each of those loops back to the planner
-                                  -> synthesizer -> (approval?) -> human_approval
+                                  -> synthesizer -> (flagged?) -> conflict_review (pauses)
+                                       -> human_approval (pauses)
                                        -> (approved?) -> notify -> END
 The loop is bounded by deps.max_iterations (the planner forces synthesis at the cap).
 """
 
 from __future__ import annotations
 
-from langgraph.graph import END, START, StateGraph
-
 from app.graph.deps import Deps
 from app.graph.nodes import make_nodes
-from app.graph.router import after_approval, after_synthesis, tool_router
+from app.graph.router import after_approval, after_review, after_synthesis, tool_router
 from app.graph.state import AgentState
+from langgraph.graph import END, START, StateGraph
 
 LOOP_NODES = ("mcp_secedgar_node", "mcp_marketdata_node", "mcp_portfolio_node", "rag_node")
 
@@ -36,13 +36,23 @@ def build_graph(deps: Deps, checkpointer=None):
     g.add_conditional_edges(
         "synthesizer_node",
         after_synthesis,
+        {
+            "conflict_review_node": "conflict_review_node",
+            "human_approval_node": "human_approval_node",
+            END: END,
+        },
+    )
+    g.add_conditional_edges(
+        "conflict_review_node",
+        after_review,
         {"human_approval_node": "human_approval_node", END: END},
     )
     g.add_conditional_edges(
         "human_approval_node", after_approval, {"mcp_notify_node": "mcp_notify_node", END: END}
     )
     g.add_edge("mcp_notify_node", END)
-    return g.compile(checkpointer=checkpointer)  # Step 15 passes a Postgres checkpointer here
+    # interrupt() needs a checkpointer: the paused state has to be saved somewhere.
+    return g.compile(checkpointer=checkpointer)
 
 
 def initial_state(question: str, user_id: int, warnings: list[str] | None = None) -> AgentState:
