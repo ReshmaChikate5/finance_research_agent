@@ -65,7 +65,8 @@ TECHNICAL_TTL = int(os.getenv("TECHNICAL_TTL_SECONDS", str(3600)))
 AV_DAILY_LIMIT = int(os.getenv("AV_DAILY_LIMIT", "25"))
 MAX_POINTS = 30
 
-_TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
+
+_TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,14}$")
 
 cache = TTLCache(max_items=500)
 av_budget = DailyBudget(AV_DAILY_LIMIT)

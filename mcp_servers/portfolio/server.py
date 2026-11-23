@@ -33,7 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("portfolio")
 
-_TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
+_TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,14}$")
 MAX_USER_ID = 2**63 - 1
 
 mcp = FastMCP(
