@@ -13,3 +13,4 @@ jobs:
       - run: uv sync --project agent_host --extra local
       - run: uv run ruff check .
       - run: uv run --project agent_host --extra local pytest
+      - run: uv run --project agent_host --extra local pytest --cov --cov-fail-under=90
