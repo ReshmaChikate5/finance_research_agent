@@ -330,7 +330,15 @@ def make_nodes(deps: Deps) -> dict[str, NodeFn]:
         for o in obs:
             if "error" in o["result"]:
                 warnings.append(f"{o['server']}.{o['tool']} failed: {o['result']['error']}")
-
+        if not obs and not passages and not warnings:
+            # The planner chose no tools at all: the question is not about filings, prices or
+            # the user's portfolio. Say what the assistant can do instead of a vague failure.
+            msg = (
+                "That question is outside what I can help with. I can look up SEC filings and "
+                "company financials, market prices and fundamentals, and your portfolio "
+                "holdings and cost basis. Ask me about one of those."
+            )
+            return {"report": "", "final_report": msg, "approved": False}
         if not usable and not passages:
             msg = "I could not gather any usable data for this question.\n" + "\n".join(
                 f"- {w}" for w in warnings
